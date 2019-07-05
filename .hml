@@ -1,0 +1,6 @@
+{
+  "srcFoldler": "test/src",
+  "dstFolder": "test/dst",
+  "cacheFolder": "test/cache",
+  "files": {}
+}
