@@ -2,5 +2,18 @@
   "srcFoldler": "test/src",
   "dstFolder": "test/dst",
   "cacheFolder": "test/cache",
-  "files": {}
+  "files": {
+    "bbb/seller.png": {
+      "high": 1,
+      "mid": 0.75,
+      "low": 0.5,
+      "tiny": true
+    },
+    "campain.png": {
+      "high": 1,
+      "mid": 0.75,
+      "low": 0.5,
+      "tiny": true
+    }
+  }
 }

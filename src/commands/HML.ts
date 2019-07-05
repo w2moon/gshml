@@ -5,9 +5,8 @@ import ora from "ora";
 import path from "path";
 import { synchronized } from "./synchronized";
 
-import { MD5Cache } from "md5cache";
 import { TinyPng } from "ttimg";
-import { copyFile, createFolders, forEachFile, md5, zipFiles } from "wlutil";
+import { copyFile, createFolders, createWorkSpaceHash, forEachFile, md5, WorkSpaceHash , zipFiles} from "wlutil";
 
 import imgsize from "image-size";
 import sharp from "sharp";
@@ -17,6 +16,11 @@ interface FileInfo {
     mid: number;
     low: number;
     tiny: boolean;
+}
+
+interface HashInfo {
+    md5: string;
+    info: FileInfo;
 }
 
 interface ConfigInfo {
@@ -30,26 +34,26 @@ interface ConfigInfo {
 export class HML {
 
     public configFile: string;
-    public cacheFile: string;
     public resizedFolder: string;
     public tinyCacheFolder: string;
     public zipFolder: string;
     public keys: string[];
-
+    public spanner: ora.Ora;
     public changedFinalFile: string[] = [];
 
     public configInfo: ConfigInfo;
-    public md5cache: MD5Cache;
+
+    public hash: WorkSpaceHash;
 
     public tinypng: TinyPng;
-    constructor(configFile: string, cacheFile: string,
+    constructor(configFile: string,
                 resizedFolder: string, tinyCacheFolder: string, zipFolder: string, keys: string[]) {
         this.configFile = configFile;
-        this.cacheFile = cacheFile;
         this.resizedFolder = resizedFolder;
         this.tinyCacheFolder = tinyCacheFolder;
         this.zipFolder = zipFolder;
         this.keys = keys;
+
     }
 
     public loadConfigFile(configFile: string) {
@@ -86,21 +90,30 @@ export class HML {
         return true;
     }
 
+    public isSameInfo(obj1: HashInfo, obj2: HashInfo) {
+        return obj1.md5 === obj2.md5
+        && obj1.info.high === obj2.info.high
+        && obj1.info.mid === obj2.info.mid
+        && obj1.info.low === obj2.info.low
+        && obj1.info.tiny === obj2.info.tiny;
+    }
+
     public getChangedFile(): string[] {
         const changed: string[] = [];
 
         const srcPath = path.resolve(this.configInfo.srcFoldler);
-        const cacheFile = path.resolve(this.configInfo.cacheFolder, this.cacheFile);
-        if (!this.md5cache) {
-            this.md5cache = new MD5Cache(cacheFile);
-        }
 
         const files = forEachFile(srcPath);
         files.forEach(file => {
             const f = file.replace(srcPath + "/", "");
-            if (this.md5cache.isNew(f, md5(file))) {
-                changed.push(f);
-            }
+            const obj = this.hash.get(f) as HashInfo;
+            const newHashInfo = {
+                md5: md5(file),
+                info: this.getConfigInfo(f),
+            };
+            if (!obj || !this.isSameInfo(obj, newHashInfo) ) {
+                 changed.push(f);
+             }
         });
 
         return changed;
@@ -144,21 +157,26 @@ export class HML {
 
     }
 
+    public getConfigInfo(f: string) {
+        let info = this.configInfo.files[f];
+        if (!info) {
+            info = {
+                high: 1,
+                mid: 0.75,
+                low: 0.5,
+                tiny: true,
+            };
+            this.configInfo.files[f] = info;
+        }
+        return info;
+    }
+
     public async  resizeImg(files: string[]) {
         const resizedFolder = path.resolve(this.configInfo.cacheFolder, this.resizedFolder);
         const srcFolder = path.resolve(this.configInfo.srcFoldler) + "/";
         const arr: Array<Promise<any>> = [];
         files.forEach(f => {
-            let info = this.configInfo.files[f];
-            if (!info) {
-                info = {
-                    high: 1,
-                    mid: 0.75,
-                    low: 0.5,
-                    tiny: true,
-                };
-                this.configInfo.files[f] = info;
-            }
+            const info = this.getConfigInfo(f);
             arr.push(this.resize(srcFolder + f, resizedFolder + "/high/" + f, info.high));
             arr.push(this.resize(srcFolder + f, resizedFolder + "/low/" + f, info.low));
             arr.push(this.resize(srcFolder + f, resizedFolder + "/mid/" + f, info.mid));
@@ -185,7 +203,6 @@ export class HML {
 
     }
 
-    public spanner: ora.Ora;
     public async  processToDst(files: string[]) {
         const resizedFolder = path.resolve(this.configInfo.cacheFolder, this.resizedFolder);
         const arr: Array<Promise<any>> = [];
@@ -203,7 +220,12 @@ export class HML {
             newArr.push(this.process(resizedFolder + "/mid/" + f, "mid/" + f, info.tiny));
             const p = Promise.all(newArr);
             p.then(() => {
-                this.md5cache.record(f, md5(path.resolve(this.configInfo.srcFoldler, f)));
+                const newHashInfo = {
+                    md5: md5(path.resolve(this.configInfo.srcFoldler, f)),
+                    info: this.getConfigInfo(f),
+                };
+                this.hash.set(f, newHashInfo);
+                this.hash.save();
             });
             arr.push(p);
         });
@@ -244,6 +266,8 @@ export class HML {
             spanner.succeed(chalk.green("如果在遍历srcFolder时发现有文件不在files里，则会自动在files里生成一条这个文件的信息"));
             return;
         }
+
+        this.hash = createWorkSpaceHash(this.configInfo.srcFoldler, this.configInfo.cacheFolder + "/");
         this.changedFinalFile = [];
         // 获得变化的文件
         const changed = this.getChangedFile();
@@ -264,6 +288,7 @@ export class HML {
                 await this.zipChangedFinalFile();
 
             }
+            this.saveConfigFile(this.configFile);
 
             spanner.succeed("处理完成");
         } catch (e) {

@@ -11,7 +11,6 @@ const logger_1 = require("../logger");
 const HML_1 = require("./HML");
 const logger = logger_1.getLogger("gsnml");
 const ConfigFile = ".hml";
-const CacheFile = "cache.json";
 const ResizedFolder = "resized";
 const TinyCacheFolder = "tiny";
 const ZipFolder = "zip";
@@ -22,6 +21,6 @@ const keys = [
     "nqb0kKydv960Gbrr1X0CTC5fWGsZXzSz"
 ];
 exports.default = (args) => __awaiter(this, void 0, void 0, function* () {
-    const c = new HML_1.HML(ConfigFile, CacheFile, ResizedFolder, TinyCacheFolder, ZipFolder, keys);
+    const c = new HML_1.HML(ConfigFile, ResizedFolder, TinyCacheFolder, ZipFolder, keys);
     c.dofile();
 });

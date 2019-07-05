@@ -21,16 +21,14 @@ const fs_1 = __importDefault(require("fs"));
 const ora_1 = __importDefault(require("ora"));
 const path_1 = __importDefault(require("path"));
 const synchronized_1 = require("./synchronized");
-const md5cache_1 = require("md5cache");
 const ttimg_1 = require("ttimg");
 const wlutil_1 = require("wlutil");
 const image_size_1 = __importDefault(require("image-size"));
 const sharp_1 = __importDefault(require("sharp"));
 class HML {
-    constructor(configFile, cacheFile, resizedFolder, tinyCacheFolder, zipFolder, keys) {
+    constructor(configFile, resizedFolder, tinyCacheFolder, zipFolder, keys) {
         this.changedFinalFile = [];
         this.configFile = configFile;
-        this.cacheFile = cacheFile;
         this.resizedFolder = resizedFolder;
         this.tinyCacheFolder = tinyCacheFolder;
         this.zipFolder = zipFolder;
@@ -64,17 +62,25 @@ class HML {
         }
         return true;
     }
+    isSameInfo(obj1, obj2) {
+        return obj1.md5 === obj2.md5
+            && obj1.info.high === obj2.info.high
+            && obj1.info.mid === obj2.info.mid
+            && obj1.info.low === obj2.info.low
+            && obj1.info.tiny === obj2.info.tiny;
+    }
     getChangedFile() {
         const changed = [];
         const srcPath = path_1.default.resolve(this.configInfo.srcFoldler);
-        const cacheFile = path_1.default.resolve(this.configInfo.cacheFolder, this.cacheFile);
-        if (!this.md5cache) {
-            this.md5cache = new md5cache_1.MD5Cache(cacheFile);
-        }
         const files = wlutil_1.forEachFile(srcPath);
         files.forEach(file => {
             const f = file.replace(srcPath + "/", "");
-            if (this.md5cache.isNew(f, wlutil_1.md5(file))) {
+            const obj = this.hash.get(f);
+            const newHashInfo = {
+                md5: wlutil_1.md5(file),
+                info: this.getConfigInfo(f),
+            };
+            if (!obj || !this.isSameInfo(obj, newHashInfo)) {
                 changed.push(f);
             }
         });
@@ -114,22 +120,26 @@ class HML {
             });
         });
     }
+    getConfigInfo(f) {
+        let info = this.configInfo.files[f];
+        if (!info) {
+            info = {
+                high: 1,
+                mid: 0.75,
+                low: 0.5,
+                tiny: true,
+            };
+            this.configInfo.files[f] = info;
+        }
+        return info;
+    }
     resizeImg(files) {
         return __awaiter(this, void 0, void 0, function* () {
             const resizedFolder = path_1.default.resolve(this.configInfo.cacheFolder, this.resizedFolder);
             const srcFolder = path_1.default.resolve(this.configInfo.srcFoldler) + "/";
             const arr = [];
             files.forEach(f => {
-                let info = this.configInfo.files[f];
-                if (!info) {
-                    info = {
-                        high: 1,
-                        mid: 0.75,
-                        low: 0.5,
-                        tiny: true,
-                    };
-                    this.configInfo.files[f] = info;
-                }
+                const info = this.getConfigInfo(f);
                 arr.push(this.resize(srcFolder + f, resizedFolder + "/high/" + f, info.high));
                 arr.push(this.resize(srcFolder + f, resizedFolder + "/low/" + f, info.low));
                 arr.push(this.resize(srcFolder + f, resizedFolder + "/mid/" + f, info.mid));
@@ -171,7 +181,12 @@ class HML {
                 newArr.push(this.process(resizedFolder + "/mid/" + f, "mid/" + f, info.tiny));
                 const p = Promise.all(newArr);
                 p.then(() => {
-                    this.md5cache.record(f, wlutil_1.md5(path_1.default.resolve(this.configInfo.srcFoldler, f)));
+                    const newHashInfo = {
+                        md5: wlutil_1.md5(path_1.default.resolve(this.configInfo.srcFoldler, f)),
+                        info: this.getConfigInfo(f),
+                    };
+                    this.hash.set(f, newHashInfo);
+                    this.hash.save();
                 });
                 arr.push(p);
             });
@@ -207,6 +222,7 @@ class HML {
                 spanner.succeed(chalk_1.default.green("如果在遍历srcFolder时发现有文件不在files里，则会自动在files里生成一条这个文件的信息"));
                 return;
             }
+            this.hash = wlutil_1.createWorkSpaceHash(this.configInfo.srcFoldler, this.configInfo.cacheFolder + "/");
             this.changedFinalFile = [];
             const changed = this.getChangedFile();
             try {
@@ -221,6 +237,7 @@ class HML {
                     spanner.succeed(chalk_1.default.green("打zip包"));
                     yield this.zipChangedFinalFile();
                 }
+                this.saveConfigFile(this.configFile);
                 spanner.succeed("处理完成");
             }
             catch (e) {

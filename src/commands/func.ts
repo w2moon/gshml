@@ -7,7 +7,6 @@ import { HML } from "./HML";
 const logger = getLogger("gsnml");
 
 const ConfigFile = ".hml";
-const CacheFile = "cache.json";
 const ResizedFolder = "resized";
 const TinyCacheFolder = "tiny";
 const ZipFolder = "zip";
@@ -20,7 +19,7 @@ const keys = [
 
 export default async (args: string[]) => {
   // 配置文件
-  const c = new HML(ConfigFile, CacheFile, ResizedFolder, TinyCacheFolder, ZipFolder, keys);
+  const c = new HML(ConfigFile,  ResizedFolder, TinyCacheFolder, ZipFolder, keys);
   c.dofile();
 
 };
