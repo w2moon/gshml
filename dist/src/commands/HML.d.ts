@@ -38,7 +38,7 @@ export declare class HML {
     spanner: ora.Ora;
     processToDst(files: string[]): Promise<any[]>;
     getDateName(): string;
-    zipChangedFinalFile(): Promise<{}>;
+    zipChangedFinalFile(): Promise<unknown>;
     dofile(): Promise<void>;
 }
 export {};

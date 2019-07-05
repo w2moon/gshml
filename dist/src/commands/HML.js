@@ -220,9 +220,6 @@ class HML {
                     yield this.processToDst(changed);
                     spanner.succeed(chalk_1.default.green("打zip包"));
                     yield this.zipChangedFinalFile();
-                    this.changedFinalFile.forEach(f => {
-                        spanner.succeed(f);
-                    });
                 }
                 spanner.succeed("处理完成");
             }
