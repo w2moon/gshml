@@ -1,6 +1,6 @@
 {
     "name": "gshml",
-    "version": "1.0.6",
+    "version": "1.0.9",
     "description": "",
     "main": "dist/index.js",
     "scripts": {
@@ -26,7 +26,7 @@
         "nyc": "^13.3.0",
         "ts-loader": "^5.3.3",
         "ts-node": "^8.1.0",
-        "ttimg": "^1.0.7",
+        "ttimg": "^1.0.8",
         "typescript": "^3.3.3333"
     },
     "dependencies": {

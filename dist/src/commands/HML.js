@@ -25,6 +25,13 @@ const ttimg_1 = require("ttimg");
 const wlutil_1 = require("wlutil");
 const image_size_1 = __importDefault(require("image-size"));
 const sharp_1 = __importDefault(require("sharp"));
+var Changed;
+(function (Changed) {
+    Changed[Changed["High"] = 1] = "High";
+    Changed[Changed["Mid"] = 2] = "Mid";
+    Changed[Changed["Low"] = 4] = "Low";
+    Changed[Changed["All"] = 7] = "All";
+})(Changed || (Changed = {}));
 class HML {
     constructor(configFile, resizedFolder, tinyCacheFolder, zipFolder, keys) {
         this.changedFinalFile = [];
@@ -81,6 +88,22 @@ class HML {
                 info: this.getConfigInfo(f),
             };
             if (!obj || !this.isSameInfo(obj, newHashInfo)) {
+                let flag = 0;
+                if (!obj || obj.md5 !== newHashInfo.md5 || obj.info.tiny !== newHashInfo.info.tiny) {
+                    flag = Changed.All;
+                }
+                else {
+                    if (obj.info.high !== newHashInfo.info.high) {
+                        flag += Changed.High;
+                    }
+                    if (obj.info.mid !== newHashInfo.info.mid) {
+                        flag += Changed.Mid;
+                    }
+                    if (obj.info.low !== newHashInfo.info.low) {
+                        flag += Changed.Low;
+                    }
+                }
+                this.changedInfo[f] = flag;
                 changed.push(f);
             }
         });
@@ -140,9 +163,15 @@ class HML {
             const arr = [];
             files.forEach(f => {
                 const info = this.getConfigInfo(f);
-                arr.push(this.resize(srcFolder + f, resizedFolder + "/high/" + f, info.high));
-                arr.push(this.resize(srcFolder + f, resizedFolder + "/low/" + f, info.low));
-                arr.push(this.resize(srcFolder + f, resizedFolder + "/mid/" + f, info.mid));
+                if (this.changedInfo[f] & Changed.High) {
+                    arr.push(this.resize(srcFolder + f, resizedFolder + "/high/" + f, info.high));
+                }
+                if (this.changedInfo[f] & Changed.Low) {
+                    arr.push(this.resize(srcFolder + f, resizedFolder + "/low/" + f, info.low));
+                }
+                if (this.changedInfo[f] & Changed.Mid) {
+                    arr.push(this.resize(srcFolder + f, resizedFolder + "/mid/" + f, info.mid));
+                }
             });
             return Promise.all(arr);
         });
@@ -160,8 +189,9 @@ class HML {
             if (!this.tinypng) {
                 this.tinypng = new ttimg_1.TinyPng(this.keys, cacheFolder);
             }
-            this.spanner.succeed(chalk_1.default.green("开始tinypng处理文件" + src));
+            this.spanner.start(chalk_1.default.green("开始tinypng处理文件" + src));
             yield this.tinypng.processFile(src, dst);
+            this.spanner.succeed(chalk_1.default.green("完成tinypng处理文件" + src));
         });
     }
     processToDst(files) {
@@ -176,9 +206,15 @@ class HML {
                     return;
                 }
                 const newArr = [];
-                newArr.push(this.process(resizedFolder + "/high/" + f, "high/" + f, info.tiny));
-                newArr.push(this.process(resizedFolder + "/low/" + f, "low/" + f, info.tiny));
-                newArr.push(this.process(resizedFolder + "/mid/" + f, "mid/" + f, info.tiny));
+                if (this.changedInfo[f] & Changed.High) {
+                    newArr.push(this.process(resizedFolder + "/high/" + f, "high/" + f, info.tiny));
+                }
+                if (this.changedInfo[f] & Changed.Low) {
+                    newArr.push(this.process(resizedFolder + "/low/" + f, "low/" + f, info.tiny));
+                }
+                if (this.changedInfo[f] & Changed.Mid) {
+                    newArr.push(this.process(resizedFolder + "/mid/" + f, "mid/" + f, info.tiny));
+                }
                 const p = Promise.all(newArr);
                 p.then(() => {
                     const newHashInfo = {
@@ -223,6 +259,7 @@ class HML {
                 return;
             }
             this.hash = wlutil_1.createWorkSpaceHash(this.configInfo.srcFoldler, this.configInfo.cacheFolder + "/");
+            this.changedInfo = {};
             this.changedFinalFile = [];
             const changed = this.getChangedFile();
             try {

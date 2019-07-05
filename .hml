@@ -12,7 +12,7 @@
     "campain.png": {
       "high": 1,
       "mid": 0.75,
-      "low": 0.5,
+      "low": 0.2,
       "tiny": true
     }
   }

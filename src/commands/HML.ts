@@ -18,6 +18,14 @@ interface FileInfo {
     tiny: boolean;
 }
 
+enum Changed {
+    High = 1,
+    Mid = 2,
+    Low = 4,
+    All = 1 + 2 + 4,
+
+}
+
 interface HashInfo {
     md5: string;
     info: FileInfo;
@@ -40,6 +48,7 @@ export class HML {
     public keys: string[];
     public spanner: ora.Ora;
     public changedFinalFile: string[] = [];
+    public changedInfo: {[key: string]: number};
 
     public configInfo: ConfigInfo;
 
@@ -112,7 +121,24 @@ export class HML {
                 info: this.getConfigInfo(f),
             };
             if (!obj || !this.isSameInfo(obj, newHashInfo) ) {
-                 changed.push(f);
+                let flag = 0;
+
+                if (!obj || obj.md5 !== newHashInfo.md5 || obj.info.tiny !== newHashInfo.info.tiny) {
+                    flag = Changed.All;
+                } else {
+                    if (obj.info.high !== newHashInfo.info.high) {
+                        flag += Changed.High;
+                    }
+                    if (obj.info.mid !== newHashInfo.info.mid) {
+                        flag += Changed.Mid;
+                    }
+                    if (obj.info.low !== newHashInfo.info.low) {
+                        flag += Changed.Low;
+                    }
+
+                }
+                this.changedInfo[f] = flag;
+                changed.push(f);
              }
         });
 
@@ -177,9 +203,15 @@ export class HML {
         const arr: Array<Promise<any>> = [];
         files.forEach(f => {
             const info = this.getConfigInfo(f);
-            arr.push(this.resize(srcFolder + f, resizedFolder + "/high/" + f, info.high));
-            arr.push(this.resize(srcFolder + f, resizedFolder + "/low/" + f, info.low));
-            arr.push(this.resize(srcFolder + f, resizedFolder + "/mid/" + f, info.mid));
+            if (this.changedInfo[f] & Changed.High) {
+                arr.push(this.resize(srcFolder + f, resizedFolder + "/high/" + f, info.high));
+            }
+            if (this.changedInfo[f] & Changed.Low) {
+                arr.push(this.resize(srcFolder + f, resizedFolder + "/low/" + f, info.low));
+            }
+            if (this.changedInfo[f] & Changed.Mid) {
+                arr.push(this.resize(srcFolder + f, resizedFolder + "/mid/" + f, info.mid));
+            }
 
         });
         return Promise.all(arr);
@@ -198,8 +230,9 @@ export class HML {
         if (!this.tinypng) {
             this.tinypng = new TinyPng(this.keys, cacheFolder);
         }
-        this.spanner.succeed(chalk.green("开始tinypng处理文件" + src));
+        this.spanner.start(chalk.green("开始tinypng处理文件" + src));
         await this.tinypng.processFile(src, dst);
+        this.spanner.succeed(chalk.green("完成tinypng处理文件" + src));
 
     }
 
@@ -215,9 +248,15 @@ export class HML {
                 return;
             }
             const newArr: Array<Promise<any>> = [];
+            if (this.changedInfo[f] & Changed.High) {
             newArr.push(this.process(resizedFolder + "/high/" + f, "high/" + f, info.tiny));
+            }
+            if (this.changedInfo[f] & Changed.Low) {
             newArr.push(this.process(resizedFolder + "/low/" + f, "low/" + f, info.tiny));
+            }
+            if (this.changedInfo[f] & Changed.Mid) {
             newArr.push(this.process(resizedFolder + "/mid/" + f, "mid/" + f, info.tiny));
+            }
             const p = Promise.all(newArr);
             p.then(() => {
                 const newHashInfo = {
@@ -268,6 +307,7 @@ export class HML {
         }
 
         this.hash = createWorkSpaceHash(this.configInfo.srcFoldler, this.configInfo.cacheFolder + "/");
+        this.changedInfo = {};
         this.changedFinalFile = [];
         // 获得变化的文件
         const changed = this.getChangedFile();

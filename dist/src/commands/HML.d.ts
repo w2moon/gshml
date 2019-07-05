@@ -27,6 +27,9 @@ export declare class HML {
     keys: string[];
     spanner: ora.Ora;
     changedFinalFile: string[];
+    changedInfo: {
+        [key: string]: number;
+    };
     configInfo: ConfigInfo;
     hash: WorkSpaceHash;
     tinypng: TinyPng;
@@ -43,7 +46,7 @@ export declare class HML {
     process(src: string, relativeFile: string, tiny: boolean): Promise<void>;
     processToDst(files: string[]): Promise<any[]>;
     getDateName(): string;
-    zipChangedFinalFile(): Promise<{}>;
+    zipChangedFinalFile(): Promise<unknown>;
     dofile(): Promise<void>;
 }
 export {};
