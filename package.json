@@ -1,5 +1,5 @@
 {
-  "name": "gsnml",
+  "name": "gshml",
   "version": "1.0.0",
   "description": "",
   "main": "dist/index.js",
@@ -9,7 +9,7 @@
     "build": "tsc"
   },
   "bin": {
-    "gsnml": "./dist/src/bin.js"
+    "gshml": "./dist/src/bin.js"
   },
   "keywords": [],
   "author": "",
