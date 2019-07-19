@@ -1,10 +1,10 @@
 {
     "name": "gshml",
-    "version": "1.0.9",
+    "version": "1.0.16",
     "description": "",
     "main": "dist/index.js",
     "scripts": {
-        "prepublishOnly": "autover && tsc",
+        "prepublishOnly": "autover && tsc && dos2unix dist/src/bin.js",
         "test": "nyc --exclude '**/*.d.ts' -e .ts --include 'src/**/*.ts' --all mocha --timeout 5000 --require ts-node/register test/**/*.ts",
         "build": "tsc"
     },
@@ -26,10 +26,10 @@
         "nyc": "^13.3.0",
         "ts-loader": "^5.3.3",
         "ts-node": "^8.1.0",
-        "ttimg": "^1.0.8",
         "typescript": "^3.3.3333"
     },
     "dependencies": {
+        "ttimg": "^1.0.8",
         "chalk": "^2.4.2",
         "commander": "^2.19.0",
         "image-size": "^0.7.4",
